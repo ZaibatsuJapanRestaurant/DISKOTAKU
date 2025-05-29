@@ -1,38 +1,162 @@
+// Firebase configuration
+const firebaseConfig = {
+    apiKey: "AIzaSyCN_JGTzbOiojCeInn_gqMhWwrwZEA_B9I",
+    authDomain: "concurso-cosplay-canto.firebaseapp.com",
+    databaseURL: "https://concurso-cosplay-canto-default-rtdb.europe-west1.firebasedatabase.app",
+    projectId: "concurso-cosplay-canto",
+    storageBucket: "concurso-cosplay-canto.firebasestorage.app",
+    messagingSenderId: "918535636527",
+    appId: "1:918535636527:web:059b9458370b71354d28da"
+};
+
+// Initialize Firebase
+firebase.initializeApp(firebaseConfig);
+const database = firebase.database();
+
 // Global variables
 let participants = [];
 let activeTab = 'cosplay';
+let isConnected = true;
 
 // Criteria for each category
 const COSPLAY_CRITERIA = ['Originalidad', 'Caracterización', 'Dificultad'];
 const SINGING_CRITERIA = ['Técnica vocal', 'Interpretación', 'Presencia escénica'];
 const JUDGES_COUNT = 3;
 
+// DOM Elements
+const cosplayNameInput = document.getElementById('cosplay-name');
+const cosplayCharacterInput = document.getElementById('cosplay-character');
+const singingNameInput = document.getElementById('singing-name');
+const singingSongInput = document.getElementById('singing-song');
+const registerCosplayBtn = document.getElementById('register-cosplay');
+const registerSingingBtn = document.getElementById('register-singing');
+const cosplayTabBtn = document.getElementById('cosplay-tab-btn');
+const singingTabBtn = document.getElementById('singing-tab-btn');
+const cosplayTab = document.getElementById('cosplay-tab');
+const singingTab = document.getElementById('singing-tab');
+const cosplayParticipants = document.getElementById('cosplay-participants');
+const singingParticipants = document.getElementById('singing-participants');
+const cosplayEmpty = document.getElementById('cosplay-empty');
+const singingEmpty = document.getElementById('singing-empty');
+const leaderboards = document.getElementById('leaderboards');
+const cosplayLeaderboard = document.getElementById('cosplay-leaderboard');
+const singingLeaderboard = document.getElementById('singing-leaderboard');
+const connectionIndicator = document.getElementById('connection-indicator');
+const connectionText = document.getElementById('connection-text');
+const cosplayCount = document.getElementById('cosplay-count');
+const singingCount = document.getElementById('singing-count');
+
 // Initialize the application
 document.addEventListener('DOMContentLoaded', function() {
-    loadParticipants();
-    updateDisplay();
+    // Add event listeners
+    registerCosplayBtn.addEventListener('click', () => addParticipant('cosplay'));
+    registerSingingBtn.addEventListener('click', () => addParticipant('singing'));
+    cosplayTabBtn.addEventListener('click', () => switchTab('cosplay'));
+    singingTabBtn.addEventListener('click', () => switchTab('singing'));
+    
+    // Show loading indicator
+    showLoading();
+    
+    // Initialize Firebase listeners
+    initializeFirebase();
 });
 
-// Load participants from localStorage
-function loadParticipants() {
-    const saved = localStorage.getItem('contestParticipants');
-    if (saved) {
-        participants = JSON.parse(saved);
+// Show loading indicator
+function showLoading() {
+    const loadingOverlay = document.createElement('div');
+    loadingOverlay.className = 'loading-overlay';
+    loadingOverlay.id = 'loading-overlay';
+    loadingOverlay.innerHTML = '<div class="spinner"></div>';
+    document.body.appendChild(loadingOverlay);
+}
+
+// Hide loading indicator
+function hideLoading() {
+    const loadingOverlay = document.getElementById('loading-overlay');
+    if (loadingOverlay) {
+        loadingOverlay.remove();
     }
 }
 
-// Save participants to localStorage
-function saveParticipants() {
-    localStorage.setItem('contestParticipants', JSON.stringify(participants));
+// Initialize Firebase listeners
+function initializeFirebase() {
+    const participantsRef = database.ref('participants');
+    
+    // Listen for changes in real-time
+    participantsRef.on('value', (snapshot) => {
+        const data = snapshot.val();
+        if (data) {
+            participants = Object.keys(data).map(key => ({
+                ...data[key],
+                id: key
+            }));
+        } else {
+            participants = [];
+        }
+        
+        updateDisplay();
+        hideLoading();
+        updateConnectionStatus(true);
+    }, (error) => {
+        console.error('Error connecting to Firebase:', error);
+        updateConnectionStatus(false);
+        loadFromLocalStorage();
+        hideLoading();
+    });
+    
+    // Monitor connection state
+    const connectedRef = database.ref('.info/connected');
+    connectedRef.on('value', (snap) => {
+        if (snap.val() === true) {
+            updateConnectionStatus(true);
+        } else {
+            updateConnectionStatus(false);
+        }
+    });
+}
+
+// Update connection status indicator
+function updateConnectionStatus(connected) {
+    isConnected = connected;
+    
+    if (connected) {
+        connectionIndicator.className = 'connected';
+        connectionIndicator.innerHTML = '<i class="fas fa-wifi"></i>';
+        connectionText.textContent = 'Conectado - Datos sincronizados en tiempo real';
+    } else {
+        connectionIndicator.className = 'disconnected';
+        connectionIndicator.innerHTML = '<i class="fas fa-wifi-slash"></i>';
+        connectionText.textContent = 'Sin conexión - Trabajando en modo local';
+    }
+}
+
+// Fallback to localStorage if Firebase fails
+function loadFromLocalStorage() {
+    const saved = localStorage.getItem('contestParticipants');
+    if (saved) {
+        participants = JSON.parse(saved);
+        updateDisplay();
+    }
+}
+
+// Save to localStorage as backup
+function saveToLocalStorage() {
+    if (participants.length > 0) {
+        localStorage.setItem('contestParticipants', JSON.stringify(participants));
+    }
 }
 
 // Add a new participant
-function addParticipant(category) {
-    const nameInput = document.getElementById(`${category}-name`);
-    const detailInput = document.getElementById(category === 'cosplay' ? 'cosplay-character' : 'singing-song');
+async function addParticipant(category) {
+    let name, details;
     
-    const name = nameInput.value.trim();
-    const details = detailInput.value.trim();
+    if (category === 'cosplay') {
+        name = cosplayNameInput.value.trim();
+        details = cosplayCharacterInput.value.trim();
+    } else {
+        name = singingNameInput.value.trim();
+        details = singingSongInput.value.trim();
+    }
     
     if (!name || !details) {
         alert('Por favor, completa todos los campos');
@@ -47,52 +171,101 @@ function addParticipant(category) {
     }));
     
     const newParticipant = {
-        id: Date.now().toString(),
         name: name,
         category: category,
         details: details,
         judges: judges,
-        finalAverage: 0
+        finalAverage: 0,
+        timestamp: Date.now()
     };
     
-    participants.push(newParticipant);
-    
-    // Clear form
-    nameInput.value = '';
-    detailInput.value = '';
-    
-    saveParticipants();
-    updateDisplay();
-}
-
-// Remove a participant
-function removeParticipant(participantId) {
-    if (confirm('¿Estás seguro de que quieres eliminar este participante?')) {
-        participants = participants.filter(p => p.id !== participantId);
-        saveParticipants();
-        updateDisplay();
+    try {
+        if (isConnected) {
+            // Add to Firebase
+            await database.ref('participants').push(newParticipant);
+        } else {
+            // Fallback to local storage
+            const localParticipant = {
+                ...newParticipant,
+                id: Date.now().toString()
+            };
+            participants.push(localParticipant);
+            saveToLocalStorage();
+            updateDisplay();
+        }
+        
+        // Clear form
+        if (category === 'cosplay') {
+            cosplayNameInput.value = '';
+            cosplayCharacterInput.value = '';
+        } else {
+            singingNameInput.value = '';
+            singingSongInput.value = '';
+        }
+    } catch (error) {
+        console.error('Error adding participant:', error);
+        alert('Error al añadir participante. Intenta de nuevo.');
     }
 }
 
 // Update score for a specific judge and criterion
-function updateScore(participantId, judgeIndex, criterionIndex, value) {
-    const participant = participants.find(p => p.id === participantId);
-    if (!participant) return;
+async function updateScore(participantId, judgeIndex, criterionIndex, value) {
+    try {
+        // Find participant
+        const participant = participants.find(p => p.id === participantId);
+        if (!participant) return;
+        
+        // Update the specific score
+        const updatedParticipant = { ...participant };
+        const updatedJudges = [...participant.judges];
+        const updatedJudge = { ...updatedJudges[judgeIndex] };
+        const updatedScores = [...updatedJudge.scores];
+        updatedScores[criterionIndex] = parseFloat(value) || 0;
+        
+        // Calculate judge average
+        const judgeAverage = updatedScores.reduce((sum, score) => sum + score, 0) / updatedScores.length;
+        updatedJudge.scores = updatedScores;
+        updatedJudge.average = judgeAverage;
+        updatedJudges[judgeIndex] = updatedJudge;
+        
+        // Calculate final average from all judges
+        const finalAverage = updatedJudges.reduce((sum, judge) => sum + judge.average, 0) / JUDGES_COUNT;
+        updatedParticipant.judges = updatedJudges;
+        updatedParticipant.finalAverage = finalAverage;
+        
+        if (isConnected) {
+            // Update in Firebase
+            await database.ref(`participants/${participantId}`).set(updatedParticipant);
+        } else {
+            // Update locally
+            participants = participants.map(p => p.id === participantId ? updatedParticipant : p);
+            saveToLocalStorage();
+            updateDisplay();
+        }
+    } catch (error) {
+        console.error('Error updating score:', error);
+        alert('Error al actualizar puntuación. Intenta de nuevo.');
+    }
+}
+
+// Remove a participant
+async function removeParticipant(participantId) {
+    if (!confirm('¿Estás seguro de que quieres eliminar este participante?')) return;
     
-    // Update the specific score
-    participant.judges[judgeIndex].scores[criterionIndex] = parseFloat(value) || 0;
-    
-    // Calculate judge average
-    const judgeScores = participant.judges[judgeIndex].scores;
-    const judgeAverage = judgeScores.reduce((sum, score) => sum + score, 0) / judgeScores.length;
-    participant.judges[judgeIndex].average = judgeAverage;
-    
-    // Calculate final average from all judges
-    const finalAverage = participant.judges.reduce((sum, judge) => sum + judge.average, 0) / JUDGES_COUNT;
-    participant.finalAverage = finalAverage;
-    
-    saveParticipants();
-    updateDisplay();
+    try {
+        if (isConnected) {
+            // Remove from Firebase
+            await database.ref(`participants/${participantId}`).remove();
+        } else {
+            // Remove locally
+            participants = participants.filter(p => p.id !== participantId);
+            saveToLocalStorage();
+            updateDisplay();
+        }
+    } catch (error) {
+        console.error('Error removing participant:', error);
+        alert('Error al eliminar participante. Intenta de nuevo.');
+    }
 }
 
 // Switch between tabs
@@ -100,12 +273,12 @@ function switchTab(tab) {
     activeTab = tab;
     
     // Update tab buttons
-    document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
-    document.querySelector(`[onclick="switchTab('${tab}')"]`).classList.add('active');
+    cosplayTabBtn.classList.toggle('active', tab === 'cosplay');
+    singingTabBtn.classList.toggle('active', tab === 'singing');
     
     // Update tab content
-    document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
-    document.getElementById(`${tab}-tab`).classList.add('active');
+    cosplayTab.classList.toggle('active', tab === 'cosplay');
+    singingTab.classList.toggle('active', tab === 'singing');
 }
 
 // Switch judge for a participant
@@ -115,29 +288,23 @@ function switchJudge(participantId, judgeIndex) {
     
     // Update active judge buttons
     const card = document.querySelector(`[data-participant-id="${participantId}"]`);
-    card.querySelectorAll('.judge-btn').forEach(btn => btn.classList.remove('active'));
-    card.querySelector(`[onclick="switchJudge('${participantId}', ${judgeIndex})"]`).classList.add('active');
+    const judgeButtons = card.querySelectorAll('.judge-btn');
+    judgeButtons.forEach((btn, index) => {
+        btn.classList.toggle('active', index === judgeIndex);
+    });
     
     // Update scoring inputs
     const criteria = participant.category === 'cosplay' ? COSPLAY_CRITERIA : SINGING_CRITERIA;
     criteria.forEach((criterion, criterionIndex) => {
-        const input = card.querySelector(`#score-${participantId}-${judgeIndex}-${criterionIndex}`);
-        if (input) {
-            input.style.display = 'block';
-        }
-    });
-    
-    // Hide other judge inputs
-    for (let i = 0; i < JUDGES_COUNT; i++) {
-        if (i !== judgeIndex) {
-            criteria.forEach((criterion, criterionIndex) => {
-                const input = card.querySelector(`#score-${participantId}-${i}-${criterionIndex}`);
+        criteria.forEach((_, cIndex) => {
+            for (let j = 0; j < JUDGES_COUNT; j++) {
+                const input = card.querySelector(`#score-${participantId}-${j}-${cIndex}`);
                 if (input) {
-                    input.style.display = 'none';
+                    input.style.display = j === judgeIndex ? 'block' : 'none';
                 }
-            });
-        }
-    }
+            }
+        });
+    });
     
     updateParticipantScoreDisplay(participantId, judgeIndex);
 }
@@ -177,11 +344,26 @@ function getTopParticipants(category) {
         .slice(0, 3);
 }
 
+// Get participants by category
+function getCategoryParticipants(category) {
+    return participants.filter(p => p.category === category);
+}
+
 // Update the entire display
 function updateDisplay() {
     updateLeaderboards();
     updateParticipantsList();
     updateEmptyStates();
+    updateCounters();
+}
+
+// Update counters
+function updateCounters() {
+    const cosplayParticipantsCount = getCategoryParticipants('cosplay').length;
+    const singingParticipantsCount = getCategoryParticipants('singing').length;
+    
+    cosplayCount.textContent = `(${cosplayParticipantsCount})`;
+    singingCount.textContent = `(${singingParticipantsCount})`;
 }
 
 // Update leaderboards
@@ -189,13 +371,10 @@ function updateLeaderboards() {
     const cosplayTop = getTopParticipants('cosplay');
     const singingTop = getTopParticipants('singing');
     
-    const leaderboards = document.getElementById('leaderboards');
-    
     if (cosplayTop.length > 0 || singingTop.length > 0) {
         leaderboards.style.display = 'grid';
         
         // Update cosplay leaderboard
-        const cosplayLeaderboard = document.getElementById('cosplay-leaderboard');
         cosplayLeaderboard.innerHTML = cosplayTop.map((participant, index) => `
             <div class="leaderboard-item">
                 <div class="leaderboard-left">
@@ -210,7 +389,6 @@ function updateLeaderboards() {
         `).join('');
         
         // Update singing leaderboard
-        const singingLeaderboard = document.getElementById('singing-leaderboard');
         singingLeaderboard.innerHTML = singingTop.map((participant, index) => `
             <div class="leaderboard-item">
                 <div class="leaderboard-left">
@@ -236,12 +414,26 @@ function updateParticipantsList() {
 
 // Update participants for a specific category
 function updateCategoryParticipants(category) {
-    const categoryParticipants = participants.filter(p => p.category === category);
-    const container = document.getElementById(`${category}-participants`);
+    const categoryParticipants = getCategoryParticipants(category);
+    const container = category === 'cosplay' ? cosplayParticipants : singingParticipants;
     
     container.innerHTML = categoryParticipants.map(participant => 
         createParticipantCard(participant)
     ).join('');
+    
+    // Add event listeners for judge buttons
+    categoryParticipants.forEach(participant => {
+        const card = document.querySelector(`[data-participant-id="${participant.id}"]`);
+        if (card) {
+            const judgeButtons = card.querySelectorAll('.judge-btn');
+            judgeButtons.forEach((btn, index) => {
+                btn.addEventListener('click', () => switchJudge(participant.id, index));
+            });
+            
+            // Initialize first judge as active
+            switchJudge(participant.id, 0);
+        }
+    });
 }
 
 // Create participant card HTML
@@ -271,8 +463,7 @@ function createParticipantCard(participant) {
                     <label>Seleccionar Juez</label>
                     <div class="judge-buttons">
                         ${participant.judges.map((judge, index) => `
-                            <button class="judge-btn ${index === 0 ? 'active' : ''}" 
-                                    onclick="switchJudge('${participant.id}', ${index})">
+                            <button class="judge-btn ${index === 0 ? 'active' : ''}">
                                 <i class="fas fa-user"></i>
                                 Juez ${judge.id}
                                 ${judge.average > 0 ? `(${judge.average.toFixed(2)})` : ''}
@@ -322,9 +513,9 @@ function createParticipantCard(participant) {
 
 // Update empty states
 function updateEmptyStates() {
-    const cosplayParticipants = participants.filter(p => p.category === 'cosplay');
-    const singingParticipants = participants.filter(p => p.category === 'singing');
+    const cosplayParticipantsCount = getCategoryParticipants('cosplay').length;
+    const singingParticipantsCount = getCategoryParticipants('singing').length;
     
-    document.getElementById('cosplay-empty').style.display = cosplayParticipants.length === 0 ? 'block' : 'none';
-    document.getElementById('singing-empty').style.display = singingParticipants.length === 0 ? 'block' : 'none';
+    cosplayEmpty.style.display = cosplayParticipantsCount === 0 ? 'block' : 'none';
+    singingEmpty.style.display = singingParticipantsCount === 0 ? 'block' : 'none';
 }
