@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Concursos de Cosplay y Canto</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>
+                <i class="fas fa-trophy"></i>
+                Concursos de Cosplay y Canto
+                <i class="fas fa-music"></i>
+            </h1>
+            <p>Sistema de gestión y puntuación para concursos</p>
+        </div>
+
+        <!-- Registration Forms -->
+        <div class="registration-forms">
+            <!-- Cosplay Registration -->
+            <div class="form-card cosplay-card">
+                <div class="card-header cosplay-header">
+                    <h2><i class="fas fa-palette"></i> Registro Cosplay</h2>
+                </div>
+                <div class="card-content">
+                    <div class="form-group">
+                        <label for="cosplay-name">Nombre del participante</label>
+                        <input type="text" id="cosplay-name" placeholder="Ingresa el nombre">
+                    </div>
+                    <div class="form-group">
+                        <label for="cosplay-character">Personaje/Cosplay</label>
+                        <input type="text" id="cosplay-character" placeholder="Personaje a interpretar">
+                    </div>
+                    <button class="btn btn-cosplay" onclick="addParticipant('cosplay')">
+                        Registrar Cosplay
+                    </button>
+                </div>
+            </div>
+
+            <!-- Singing Registration -->
+            <div class="form-card singing-card">
+                <div class="card-header singing-header">
+                    <h2><i class="fas fa-music"></i> Registro Canto</h2>
+                </div>
+                <div class="card-content">
+                    <div class="form-group">
+                        <label for="singing-name">Nombre del participante</label>
+                        <input type="text" id="singing-name" placeholder="Ingresa el nombre">
+                    </div>
+                    <div class="form-group">
+                        <label for="singing-song">Canción a interpretar</label>
+                        <input type="text" id="singing-song" placeholder="Título de la canción">
+                    </div>
+                    <button class="btn btn-singing" onclick="addParticipant('singing')">
+                        Registrar Canto
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Leaderboards -->
+        <div id="leaderboards" class="leaderboards" style="display: none;">
+            <div class="leaderboard-card">
+                <div class="card-header leaderboard-header">
+                    <h2><i class="fas fa-trophy"></i> Top Cosplay</h2>
+                </div>
+                <div class="card-content" id="cosplay-leaderboard"></div>
+            </div>
+            <div class="leaderboard-card">
+                <div class="card-header leaderboard-header">
+                    <h2><i class="fas fa-trophy"></i> Top Canto</h2>
+                </div>
+                <div class="card-content" id="singing-leaderboard"></div>
+            </div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="tabs">
+            <div class="tab-buttons">
+                <button class="tab-button active" onclick="switchTab('cosplay')">
+                    <i class="fas fa-palette"></i> Participantes Cosplay
+                </button>
+                <button class="tab-button" onclick="switchTab('singing')">
+                    <i class="fas fa-music"></i> Participantes Canto
+                </button>
+            </div>
+
+            <!-- Cosplay Tab Content -->
+            <div id="cosplay-tab" class="tab-content active">
+                <div id="cosplay-participants" class="participants-list"></div>
+                <div id="cosplay-empty" class="empty-state">
+                    <i class="fas fa-palette"></i>
+                    <h3>No hay participantes de cosplay registrados</h3>
+                    <p>Comienza registrando participantes en el concurso de cosplay</p>
+                </div>
+            </div>
+
+            <!-- Singing Tab Content -->
+            <div id="singing-tab" class="tab-content">
+                <div id="singing-participants" class="participants-list"></div>
+                <div id="singing-empty" class="empty-state">
+                    <i class="fas fa-music"></i>
+                    <h3>No hay participantes de canto registrados</h3>
+                    <p>Comienza registrando participantes en el concurso de canto</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
